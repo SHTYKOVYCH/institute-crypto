@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"des/des"
 	"encoding/binary"
 	"flag"
@@ -56,19 +57,19 @@ func main() {
 	inputStats, _ := os.Stat(*inputFile)
 
 	if *decrypt {
-		sizeBytes := make([]byte, 8)
+		sizeBytesDec := make([]byte, 0, 8)
 
-		_, err = r.Read(sizeBytes)
+		sizeBuffer := bytes.NewBuffer(sizeBytesDec)
+
+		err = des.EcbDecrypt(8, r, sizeBuffer, *key)
 
 		if err != nil {
-			fmt.Println("Error: reading size!")
+			fmt.Println("Hey")
 			w.Close()
 			return
 		}
 
-		size := binary.BigEndian.Uint64(sizeBytes)
-
-		var err error
+		size := binary.BigEndian.Uint64(sizeBytesDec[0:8])
 
 		switch *mode {
 		case "ECB":
@@ -94,9 +95,13 @@ func main() {
 
 		binary.BigEndian.PutUint64(size, uint64(inputStats.Size()))
 
-		w.Write(size)
+		sizeReader := bytes.NewReader(size)
 
-		var err error
+		err := des.EcbEncrypt(sizeReader, w, *key)
+
+		//w.Write(size)
+
+		//var err error
 
 		switch *mode {
 		case "ECB":

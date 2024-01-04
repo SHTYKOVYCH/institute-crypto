@@ -257,7 +257,7 @@ func EcbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string) err
 	var totalRead uint64 = 0
 
 	for {
-		for i := 0; i < len(msgBytes); i += 1 {
+		for i := 0; i < 8; i += 1 {
 			msgBytes[i] ^= msgBytes[i]
 		}
 
@@ -269,6 +269,10 @@ func EcbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string) err
 
 		if err != nil {
 			return err
+		}
+
+		if n == 0 {
+			break
 		}
 
 		totalRead += uint64(n)
@@ -283,10 +287,14 @@ func EcbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string) err
 			msgBytes = msgBytes[:8-(totalRead-size)]
 		}
 
-		_, err = writer.Write(msgBytes)
+		n, err = writer.Write(msgBytes)
 
 		if err != nil {
 			return err
+		}
+
+		if totalRead >= size {
+			break
 		}
 	}
 	return nil
