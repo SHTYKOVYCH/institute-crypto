@@ -3,6 +3,7 @@ package des
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"io"
 	"strconv"
 )
 
@@ -177,8 +178,8 @@ func DecryptMessage(msg string, key string) string {
 	msgBytes := []byte(msg)
 
 	msgChunksLen := len(msgBytes) / 16
-	if len(msgBytes)%16 > 0 {
-		msgChunksLen += 1
+	if len(msgBytes)%16 != 0 {
+		panic("Broken message")
 	}
 
 	msgChunks := make([][]byte, msgChunksLen)
@@ -187,16 +188,15 @@ func DecryptMessage(msg string, key string) string {
 		msgChunks[i] = []byte{}
 
 		if i+1 == msgChunksLen {
-			msgChunks[i] = []byte(msgBytes[i*16:])
+			msgChunks[i] = msgBytes[i*16:]
 		} else {
-			msgChunks[i] = []byte(msgBytes[i*16 : (i+1)*16])
+			msgChunks[i] = msgBytes[i*16 : (i+1)*16]
 		}
 	}
 
 	msgBlocks := make([]uint64, msgChunksLen)
 
 	for i := 0; i < msgChunksLen; i += 1 {
-		//msgBlocks[i] = binary.BigEndian.Uint64(msgChunks[i])
 		msgBlocks[i], _ = strconv.ParseUint(string(msgChunks[i]), 16, 64)
 	}
 
@@ -214,4 +214,80 @@ func DecryptMessage(msg string, key string) string {
 	}
 
 	return outStr
+}
+
+func EcbEncrypt(reader io.Reader, writer io.Writer, key string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+
+	for {
+		for i := 0; i < 8; i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		_, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(FeistelNet(ReorderWithTable(msgBlock, IP), roundKeys), RP)
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func EcbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+
+	var totalRead uint64 = 0
+
+	for {
+		for i := 0; i < len(msgBytes); i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		n, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		totalRead += uint64(n)
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(ReverseFeistelNet(ReorderWithTable(msgBlock, IP), roundKeys), RP)
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		if totalRead > size {
+			msgBytes = msgBytes[:8-(totalRead-size)]
+		}
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

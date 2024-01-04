@@ -1,5 +1,7 @@
 package des
 
+import "io"
+
 var PC1 [][]uint64 = [][]uint64{
 	{57, 128},
 	{49, 32768},
@@ -399,4 +401,12 @@ var RP [][]uint64 = [][]uint64{
 	{17, 140737488355328},
 	{57, 128},
 	{25, 549755813888},
+}
+
+var ModEncrypt map[string]func(reader io.Reader, writer io.Writer, key string) error = map[string]func(reader io.Reader, writer io.Writer, key string) error{
+	"ECB": EcbEncrypt,
+}
+
+var ModDecrypt map[string]func(size uint64, reader io.Reader, writer io.Writer, key string) error = map[string]func(size uint64, reader io.Reader, writer io.Writer, key string) error{
+	"ECB": EcbDecrypt,
 }
