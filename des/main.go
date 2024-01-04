@@ -12,7 +12,9 @@ func main() {
 	decrypt := flag.Bool("d", false, "whether to decrypt or not")
 	inputFile := flag.String("in", "", "file(with path) wich will be encrypted")
 	outputFile := flag.String("out", "", "file(with path) wich will be encrypted")
-	mode := flag.String("mode", "ECB", "mode which will be used. Available are: ECB")
+	mode := flag.String("mode", "ECB", "mode which will be used. Available are: ECB, CBC, CFB, OFB")
+	secret := flag.String("secret", "", "hex secret block for CBC")
+	key := flag.String("key", "", "hex key with which will be used.")
 
 	flag.Parse()
 
@@ -26,7 +28,15 @@ func main() {
 		return
 	}
 
-	key := "0E329232EA6D0D73"
+	if len(*key) < 16 {
+		fmt.Println("Error: key should be in hex and be at least 16 symbols")
+		return
+	}
+
+	if *mode != "ECB" && (len(*secret) < 16) {
+		fmt.Println("Error: secret required for CBC,CFB,OFB")
+		return
+	}
 
 	//fmt.Println(des.EncryptMessage("Your lips are smoother than vaseline\r\n", key))
 	//fmt.Println(des.DecryptMessage("c0999fdde378d7ed727da00bca5a84ee47f269a4d6438190d9d52f78f5358499828ac9b453e0e653", key))
@@ -46,15 +56,9 @@ func main() {
 	inputStats, _ := os.Stat(*inputFile)
 
 	if *decrypt {
-		if des.ModDecrypt[*mode] == nil {
-			w.Close()
-			fmt.Println("Error: unkown mode")
-			return
-		}
-
 		sizeBytes := make([]byte, 8)
 
-		_, err := r.Read(sizeBytes)
+		_, err = r.Read(sizeBytes)
 
 		if err != nil {
 			fmt.Println("Error: reading size!")
@@ -64,25 +68,50 @@ func main() {
 
 		size := binary.BigEndian.Uint64(sizeBytes)
 
-		err = des.ModDecrypt[*mode](size, r, w, key)
+		var err error
+
+		switch *mode {
+		case "ECB":
+			err = des.EcbDecrypt(size, r, w, *key)
+		case "CBC":
+			err = des.CbcDecrypt(size, r, w, *key, *secret)
+		case "CFB":
+			err = des.CfbDecrypt(size, r, w, *key, *secret)
+		case "OFB":
+			err = des.OfbDecrypt(size, r, w, *key, *secret)
+		default:
+			fmt.Println("Error: unknown mode")
+			w.Close()
+			return
+		}
 
 		w.Close()
 		if err != nil {
 			os.Remove(*outputFile)
 		}
 	} else {
-		if des.ModEncrypt[*mode] == nil {
-			w.Close()
-			fmt.Println("Error: unkown mode")
-			return
-		}
 		size := make([]byte, 8)
 
 		binary.BigEndian.PutUint64(size, uint64(inputStats.Size()))
 
 		w.Write(size)
 
-		err := des.ModEncrypt[*mode](r, w, key)
+		var err error
+
+		switch *mode {
+		case "ECB":
+			err = des.EcbEncrypt(r, w, *key)
+		case "CBC":
+			err = des.CbcEncrypt(r, w, *key, *secret)
+		case "CFB":
+			err = des.CfbEncrypt(r, w, *key, *secret)
+		case "OFB":
+			err = des.OfbEncrypt(r, w, *key, *secret)
+		default:
+			fmt.Println("Error: unknown mode")
+			w.Close()
+			return
+		}
 
 		w.Close()
 

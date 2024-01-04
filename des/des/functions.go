@@ -291,3 +291,250 @@ func EcbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string) err
 	}
 	return nil
 }
+
+func CbcEncrypt(reader io.Reader, writer io.Writer, key string, secret string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+	lastMsgBytes, _ := strconv.ParseUint(secret, 16, 64)
+
+	for {
+		for i := 0; i < 8; i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		_, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(FeistelNet(ReorderWithTable(msgBlock^lastMsgBytes, IP), roundKeys), RP)
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+
+		lastMsgBytes = outMSG
+	}
+	return nil
+}
+
+func CbcDecrypt(size uint64, reader io.Reader, writer io.Writer, key string, secret string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+	lastMsgBytes, _ := strconv.ParseUint(secret, 16, 64)
+
+	var totalRead uint64 = 0
+
+	for {
+		for i := 0; i < len(msgBytes); i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		n, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		totalRead += uint64(n)
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(ReverseFeistelNet(ReorderWithTable(msgBlock, IP), roundKeys), RP) ^ lastMsgBytes
+		lastMsgBytes = msgBlock
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		if totalRead > size {
+			msgBytes = msgBytes[:8-(totalRead-size)]
+		}
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
+func CfbEncrypt(reader io.Reader, writer io.Writer, key string, secret string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+	lastMsgBytes, _ := strconv.ParseUint(secret, 16, 64)
+
+	for {
+		for i := 0; i < 8; i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		_, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(FeistelNet(ReorderWithTable(lastMsgBytes, IP), roundKeys), RP) ^ msgBlock
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+
+		lastMsgBytes = outMSG
+	}
+	return nil
+}
+
+func CfbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string, secret string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+	lastMsgBytes, _ := strconv.ParseUint(secret, 16, 64)
+
+	var totalRead uint64 = 0
+
+	for {
+		for i := 0; i < len(msgBytes); i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		n, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		totalRead += uint64(n)
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(FeistelNet(ReorderWithTable(lastMsgBytes, IP), roundKeys), RP) ^ msgBlock
+		lastMsgBytes = msgBlock
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		if totalRead > size {
+			msgBytes = msgBytes[:8-(totalRead-size)]
+		}
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
+func OfbEncrypt(reader io.Reader, writer io.Writer, key string, secret string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+	lastMsgBytes, _ := strconv.ParseUint(secret, 16, 64)
+
+	for {
+		for i := 0; i < 8; i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		_, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(FeistelNet(ReorderWithTable(lastMsgBytes, IP), roundKeys), RP)
+		lastMsgBytes = outMSG
+		outMSG ^= msgBlock
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func OfbDecrypt(size uint64, reader io.Reader, writer io.Writer, key string, secret string) error {
+	msgBytes := make([]byte, 8)
+	roundKeys := GetRoundKeys(key)
+	lastMsgBytes, _ := strconv.ParseUint(secret, 16, 64)
+
+	var totalRead uint64 = 0
+
+	for {
+		for i := 0; i < len(msgBytes); i += 1 {
+			msgBytes[i] ^= msgBytes[i]
+		}
+
+		n, err := reader.Read(msgBytes)
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		totalRead += uint64(n)
+
+		msgBlock := binary.BigEndian.Uint64(msgBytes)
+
+		outMSG := ReorderWithTable(FeistelNet(ReorderWithTable(lastMsgBytes, IP), roundKeys), RP)
+		lastMsgBytes = outMSG
+		outMSG ^= msgBlock
+
+		binary.BigEndian.PutUint64(msgBytes, outMSG)
+
+		if totalRead > size {
+			msgBytes = msgBytes[:8-(totalRead-size)]
+		}
+
+		_, err = writer.Write(msgBytes)
+
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
