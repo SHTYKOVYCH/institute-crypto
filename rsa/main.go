@@ -177,7 +177,8 @@ func main() {
 
 		output.Write(sizeBytes)
 
-		buffer := make([]byte, keySize)
+		buffer := make([]byte, keySize-1)
+		outBuffer := make([]byte, keySize)
 		partMsg := new(big.Int)
 
 		for {
@@ -195,9 +196,9 @@ func main() {
 
 			partMsg = partMsg.Exp(partMsg, constants.E, key)
 
-			partMsg.FillBytes(buffer)
+			partMsg.FillBytes(outBuffer)
 
-			output.Write(buffer)
+			output.Write(outBuffer)
 		}
 	case "decode":
 		if *inputFile == "" {
@@ -312,24 +313,20 @@ func main() {
 				return
 			}
 
-			if uint64(n) < keySize {
+			if uint64(n) != keySize {
 				fmt.Println("Error: wrong key or file is corrupted")
 				return
 			}
 
-			totalRead += uint64(n)
+			totalRead += uint64(n) - 1
 
-			partMsg.SetBytes(buffer)
-
-			partMsg.Exp(partMsg, d, N)
-
-			partMsg.FillBytes(buffer)
+			partMsg.SetBytes(buffer).Exp(partMsg, d, N).FillBytes(buffer)
 
 			if totalRead > sizeDec {
 				buffer = buffer[:keySize-(totalRead-sizeDec)]
 			}
 
-			output.Write(buffer)
+			output.Write(buffer[1:])
 		}
 	default:
 		fmt.Println("Error: Invalid mode")
