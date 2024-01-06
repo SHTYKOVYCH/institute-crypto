@@ -39,8 +39,6 @@ func main() {
 		return
 	}
 
-	//fmt.Println(des.EncryptMessage("Your lips are smoother than vaseline\r\n", key))
-	//fmt.Println(des.DecryptMessage("c0999fdde378d7ed727da00bca5a84ee47f269a4d6438190d9d52f78f5358499828ac9b453e0e653", key))
 	r, err := os.OpenFile(*inputFile, os.O_RDONLY, 0777)
 	if err != nil {
 		fmt.Println("Error on opening input file")
@@ -98,10 +96,6 @@ func main() {
 		sizeReader := bytes.NewReader(size)
 
 		err := des.EcbEncrypt(sizeReader, w, *key)
-
-		//w.Write(size)
-
-		//var err error
 
 		switch *mode {
 		case "ECB":
