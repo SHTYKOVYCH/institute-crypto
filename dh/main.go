@@ -21,16 +21,29 @@ func SafePrime(bits uint) *big.Int {
 	}
 }
 
+func PrimRoot(max *big.Int) *big.Int {
+	subMax := new(big.Int).Sub(max, big.NewInt(1))
+	for {
+		res, _ := rand.Int(rand.Reader, max)
+
+		cmpVal := new(big.Int).Exp(res, subMax, max)
+
+		if cmpVal.Cmp(big.NewInt(1)) == 0 {
+			return res
+		}
+	}
+}
+
 func main() {
 	const numOfBits uint = 64
 
 	privateAlice, _ := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 	privateBob, _ := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 
-	g := SafePrime(numOfBits)
 	p := SafePrime(numOfBits)
+	g := PrimRoot(p)
 
-	printArray := make([]byte, math.Ceil(float64(numOfBits)/8.0))
+	printArray := make([]byte, int(math.Ceil(float64(numOfBits)/8.0)))
 
 	privateAlice.FillBytes(printArray)
 	fmt.Println("Alice Private: ", hex.EncodeToString(printArray))
